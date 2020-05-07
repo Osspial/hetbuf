@@ -286,27 +286,45 @@ impl<A> HetBuf<A> {
     }
 
     pub fn push_item<T>(&mut self, item: T) -> &mut T {
-        let item_ref = &mut self.alloc_slice::<T>(1)[0];
+        self.push_item_explicit_align(item, mem::align_of::<T>())
+    }
+
+    pub fn push_item_with<T, F>(&mut self, item: F) -> &mut T
+        where F: FnOnce() -> T,
+    {
+        self.push_item_explicit_align_with(item, mem::align_of::<T>())
+    }
+
+    pub fn push_iter<T, I>(&mut self, iter: I) -> &mut [T]
+        where I: IntoIterator<Item=T>,
+    {
+        self.push_iter_explicit_align(iter, mem::align_of::<T>())
+    }
+
+    pub fn push_item_explicit_align<T>(&mut self, item: T, alignment: usize) -> &mut T {
+        let item_ref = &mut self.alloc_slice::<T>(1, alignment)[0];
         unsafe {
             item_ref.as_mut_ptr().write(item);
             &mut *item_ref.as_mut_ptr()
         }
     }
 
-    pub fn push_item_with<T, F>(&mut self, item: F) -> &mut T
+    pub fn push_item_explicit_align_with<T, F>(&mut self, item: F, alignment: usize) -> &mut T
         where F: FnOnce() -> T,
     {
-        let item_ref = &mut self.alloc_slice::<T>(1)[0];
+        let item_ref = &mut self.alloc_slice::<T>(1, alignment)[0];
         unsafe {
             item_ref.as_mut_ptr().write(item());
             &mut *item_ref.as_mut_ptr()
         }
     }
 
-    pub fn push_iter<T>(&mut self, iter: impl IntoIterator<Item=T>) -> &mut [T] {
+    pub fn push_iter_explicit_align<T, I>(&mut self, iter: I, alignment: usize) -> &mut [T]
+        where I: IntoIterator<Item=T>
+    {
         let mut iter = iter.into_iter();
         let (size_hint, _) = iter.size_hint();
-        let initial_slice = self.alloc_slice::<T>(size_hint);
+        let initial_slice = self.alloc_slice::<T>(size_hint, alignment);
 
         let mut actual_len = 0;
         for (item_ref, item) in initial_slice.iter_mut().zip(&mut iter) {
@@ -317,7 +335,7 @@ impl<A> HetBuf<A> {
         let initial_slice_head = initial_slice.as_ptr() as usize - self.data.as_ptr() as usize;
 
         for item in iter {
-            self.push_item(item);
+            self.push_item_explicit_align(item, alignment);
             actual_len += 1;
         }
 
@@ -327,18 +345,20 @@ impl<A> HetBuf<A> {
     }
 
     pub fn as_slice(&self) -> &[MaybeUninit<u8>] {
-        &*self.data
+        &self.data[..self.head]
     }
 
-    fn alloc_slice<T>(&mut self, len: usize) -> &mut [MaybeUninit<T>] {
+    fn alloc_slice<T>(&mut self, len: usize, alignment: usize) -> &mut [MaybeUninit<T>] {
+        assert!(alignment >= mem::align_of::<T>());
         assert!(
             mem::align_of::<T>() <= mem::align_of::<A>(),
-            "unsupported alignment: {} is larger than {}", mem::align_of::<T>(), mem::align_of::<A>()
+            "unsupported alignment: {} is larger than {}", alignment, mem::align_of::<A>()
         );
+
         if self.data.len() == 0 {
             self.data.reserve(mem::size_of::<T>());
         }
-        let align_offset = (unsafe{ self.data.as_ptr().offset(self.head as isize) } as *const MaybeUninit<u8>).align_offset(mem::align_of::<T>());
+        let align_offset = (unsafe{ self.data.as_ptr().offset(self.head as isize) } as *const MaybeUninit<u8>).align_offset(alignment);
         let head_aligned = self.head + align_offset;
         let head_new = head_aligned + mem::size_of::<T>() * len;
         let current_len = self.data.len();
