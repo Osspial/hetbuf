@@ -16,7 +16,7 @@ fn main() {
     let mut template_buffer = HetBuf::<DWORD>::new();
 
     template_buffer.push_item_explicit_align(DLGTEMPLATE {
-        style: WS_POPUP | WS_BORDER | WS_SYSMENU | DS_MODALFRAME | WS_CAPTION,
+        style: WS_POPUP | WS_BORDER | WS_SYSMENU | DS_MODALFRAME | WS_CAPTION | DS_SETFONT,
         dwExtendedStyle: 0,
         cdit: 3,
         x: 10, y: 10,
@@ -25,6 +25,8 @@ fn main() {
     template_buffer.push_item::<WORD>(0); // no menu
     template_buffer.push_item::<WORD>(0); // predefined dialog box class (by default)
     template_buffer.push_iter::<WORD, _>(OsStr::new("My Dialog\0").encode_wide());
+    template_buffer.push_item::<WORD>(8);
+    template_buffer.push_iter::<WORD, _>(OsStr::new("MS Shell Dlg\0").encode_wide());
 
     template_buffer.push_item_explicit_align(DLGITEMTEMPLATE {
         x: 10, y: 70,

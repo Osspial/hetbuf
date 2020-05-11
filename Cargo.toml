@@ -11,4 +11,6 @@ edition = "2018"
 [dev-dependencies]
 # proptest = {version = "0.9", default-features = false, features = ["alloc"]}
 proptest = {version = "0.9"}
-winapi = {path = "../winapi-rs", features = ["winuser", "libloaderapi", "errhandlingapi"]}
+
+[workspace]
+members = ["./examples/winapi_dialog"]
