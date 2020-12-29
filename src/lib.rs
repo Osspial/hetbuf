@@ -348,6 +348,18 @@ impl<A> HetBuf<A> {
         &self.data[..self.head]
     }
 
+    pub fn as_mut_slice(&mut self) -> &mut [MaybeUninit<u8>] {
+        &mut self.data[..self.head]
+    }
+
+    pub fn as_ptr<T>(&self) -> *const T {
+        self.as_slice().as_ptr() as *const T
+    }
+
+    pub fn as_mut_ptr<T>(&mut self) -> *mut T {
+        self.as_mut_slice().as_mut_ptr() as *mut T
+    }
+
     fn alloc_slice<T>(&mut self, len: usize, alignment: usize) -> &mut [MaybeUninit<T>] {
         assert!(alignment >= mem::align_of::<T>());
         assert!(
